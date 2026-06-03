@@ -4,7 +4,8 @@ import { it } from "date-fns/locale";
 
 import { HistoryList, type HistoryEntry } from "@/components/HistoryList";
 import { AppHeader, Nav } from "@/components/Nav";
-import { getCheckIns, getPatient } from "@/lib/queries";
+import { getCheckIns, getMedNamesByDay, getPatient } from "@/lib/queries";
+import { startOfLocalDay } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function HistoryPage() {
   if (!patient) redirect("/setup");
 
   const checkIns = await getCheckIns(patient.id);
+  // Farmaci presi per giorno, derivati dalle dosi registrate (unica fonte).
+  const medNamesByDay = await getMedNamesByDay(patient.id);
   // Più recenti in cima.
   const entries: HistoryEntry[] = [...checkIns].reverse().map((c) => ({
     id: c.id,
@@ -21,7 +24,7 @@ export default async function HistoryPage() {
     mobility: c.mobility,
     mood: c.mood,
     notes: c.notes,
-    medications: c.medications.map((m) => m.name),
+    medications: medNamesByDay.get(startOfLocalDay(c.date).getTime()) ?? [],
   }));
 
   return (

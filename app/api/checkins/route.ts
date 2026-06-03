@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { startOfLocalDay } from "@/lib/date";
-import { ownedMedicationIds, parseCheckInBody } from "@/lib/checkin";
+import { parseCheckInBody } from "@/lib/checkin";
 
 // Crea o aggiorna il check-in di OGGI (uno per giorno, editabile entro mezzanotte).
 export async function POST(req: Request) {
@@ -15,9 +15,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const patient = await prisma.patient.findFirst({
-    include: { medications: { select: { id: true } } },
-  });
+  const patient = await prisma.patient.findFirst({ select: { id: true } });
   if (!patient) {
     return NextResponse.json(
       { error: "Profilo non configurato." },
@@ -26,10 +24,6 @@ export async function POST(req: Request) {
   }
 
   const today = startOfLocalDay();
-  const meds = ownedMedicationIds(
-    input.medicationIds,
-    patient.medications.map((m) => m.id),
-  ).map((id) => ({ id }));
 
   // upsert sulla coppia (paziente, giorno): aggiorna se oggi esiste già.
   const checkIn = await prisma.checkIn.upsert({
@@ -41,14 +35,12 @@ export async function POST(req: Request) {
       mobility: input.mobility,
       mood: input.mood,
       notes: input.notes,
-      medications: { connect: meds },
     },
     update: {
       painLevel: input.painLevel,
       mobility: input.mobility,
       mood: input.mood,
       notes: input.notes,
-      medications: { set: meds },
     },
   });
 

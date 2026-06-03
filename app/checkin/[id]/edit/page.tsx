@@ -19,7 +19,6 @@ export default async function EditCheckinPage({
 
   const checkIn = await prisma.checkIn.findUnique({
     where: { id: params.id },
-    include: { medications: true },
   });
   if (!checkIn || checkIn.patientId !== patient.id) notFound();
 
@@ -28,7 +27,6 @@ export default async function EditCheckinPage({
     mobility: checkIn.mobility,
     mood: checkIn.mood,
     notes: checkIn.notes,
-    medicationIds: checkIn.medications.map((m) => m.id),
   };
   const dateLabel = format(checkIn.date, "EEEE d MMMM", { locale: it });
 
@@ -37,7 +35,6 @@ export default async function EditCheckinPage({
       <AppHeader subtitle="Modifica check-in" />
       <main className="mx-auto w-full max-w-screen-sm flex-1 p-4">
         <CheckinForm
-          medications={patient.medications}
           defaults={defaults}
           isEditing
           checkInId={checkIn.id}

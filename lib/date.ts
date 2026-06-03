@@ -21,6 +21,16 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
   return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();
 }
 
+// Ora corrente "HH:MM" in Europe/Rome (per registrare una dose al bisogno).
+export function currentLocalTime(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Rome",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
+}
+
 // Giorni trascorsi dall'operazione (0 = giorno dell'operazione).
 export function daysSince(operationDate: Date, from: Date = new Date()): number {
   const diff =

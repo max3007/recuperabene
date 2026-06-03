@@ -27,14 +27,22 @@ model Medication {
   name      String
   // Dose libera, es. "1 compressa", "10 gocce". Opzionale.
   dosage    String?
-  // Orari di assunzione come CSV di "HH:MM", es. "08:00,20:00". Vuoto = al bisogno.
+  // Orari di assunzione come CSV di "HH:MM", es. "08:00,20:00". Ignorato se asNeeded.
   times     String  @default("")
+  // Farmaco "al bisogno" (PRN): nessun orario fisso, si registra quando assunto.
+  asNeeded  Boolean @default(false)
+  // Terapia attiva: archiviazione soft (niente delete distruttivo).
+  active    Boolean @default(true)
+  // Periodo di terapia. startDate null = sempre iniziata; durationDays null = in corso.
+  startDate    DateTime?
+  durationDays Int?
   patientId String
   patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  // Check-in in cui questo farmaco è stato segnato come assunto
+  // Storico: vecchia relazione col check-in, non più scritta (la fonte di verità
+  // dell'assunzione è MedicationIntake). Mantenuta per non perdere i dati passati.
   checkIns CheckIn[]
-  // Dosi spuntate come prese (una riga per farmaco/giorno/orario)
+  // Dosi registrate come prese (una riga per farmaco/giorno/orario) — fonte unica.
   intakes  MedicationIntake[]
 }
 

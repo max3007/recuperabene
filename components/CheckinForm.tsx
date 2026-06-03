@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -32,24 +31,19 @@ import {
   painEmoji,
 } from "@/lib/constants";
 
-type Medication = { id: string; name: string };
-
 export type CheckinDefaults = {
   painLevel: number;
   mobility: string;
   mood: number;
   notes: string;
-  medicationIds: string[];
 };
 
 export function CheckinForm({
-  medications,
   defaults,
   isEditing,
   checkInId,
   dateLabel,
 }: {
-  medications: Medication[];
   defaults: CheckinDefaults;
   isEditing: boolean;
   // Se presente, il form modifica QUEL check-in (PATCH) invece di fare
@@ -62,9 +56,6 @@ export function CheckinForm({
   const [mobility, setMobility] = useState(defaults.mobility);
   const [mood, setMood] = useState(defaults.mood);
   const [notes, setNotes] = useState(defaults.notes);
-  const [medicationIds, setMedicationIds] = useState<string[]>(
-    defaults.medicationIds,
-  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -73,16 +64,7 @@ export function CheckinForm({
   const [nlText, setNlText] = useState("");
   const [nlBusy, setNlBusy] = useState(false);
   const [nlError, setNlError] = useState<string | null>(null);
-  const [nlSummary, setNlSummary] = useState<{
-    recognized: string[];
-    unmatched: string[];
-  } | null>(null);
-
-  function toggleMed(id: string, checked: boolean) {
-    setMedicationIds((prev) =>
-      checked ? [...prev, id] : prev.filter((m) => m !== id),
-    );
-  }
+  const [nlRecognized, setNlRecognized] = useState<string[] | null>(null);
 
   const editingPast = Boolean(checkInId);
 
@@ -90,7 +72,7 @@ export function CheckinForm({
     const text = nlText.trim();
     if (!text) return;
     setNlError(null);
-    setNlSummary(null);
+    setNlRecognized(null);
     setNlBusy(true);
 
     const res = await fetch("/api/checkins/parse", {
@@ -108,7 +90,7 @@ export function CheckinForm({
 
     // Trascrive nel form SOLO i campi riconosciuti; gli altri restano com'erano.
     const recognized: string[] = [];
-    if (data.painLevel !== null) {
+    if (data.painLevel !== null && data.painLevel !== undefined) {
       setPainLevel(data.painLevel);
       recognized.push(`dolore ${data.painLevel}/10`);
     }
@@ -116,7 +98,7 @@ export function CheckinForm({
       setMobility(data.mobility);
       recognized.push(`mobilità "${mobilityLabel(data.mobility)}"`);
     }
-    if (data.mood !== null) {
+    if (data.mood !== null && data.mood !== undefined) {
       setMood(data.mood);
       recognized.push(`umore ${moodEmoji(data.mood)}`);
     }
@@ -124,15 +106,8 @@ export function CheckinForm({
       setNotes(data.notes);
       recognized.push("note");
     }
-    // I farmaci si toccano solo se ne ha effettivamente parlato.
-    if (data.medicationIds.length > 0 || data.unmatchedMedications.length > 0) {
-      setMedicationIds(data.medicationIds);
-      if (data.medicationIds.length > 0) {
-        recognized.push(`${data.medicationIds.length} farmaci`);
-      }
-    }
 
-    setNlSummary({ recognized, unmatched: data.unmatchedMedications ?? [] });
+    setNlRecognized(recognized);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -145,7 +120,7 @@ export function CheckinForm({
       {
         method: editingPast ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ painLevel, mobility, mood, notes, medicationIds }),
+        body: JSON.stringify({ painLevel, mobility, mood, notes }),
       },
     );
 
@@ -188,7 +163,7 @@ export function CheckinForm({
           <Textarea
             value={nlText}
             onChange={(e) => setNlText(e.target.value)}
-            placeholder="Es. «Oggi dolore sul 6, camminato un po' in giardino, preso paracetamolo, umore così così»"
+            placeholder="Es. «Oggi dolore sul 6, camminato un po' in giardino, umore così così»"
             rows={2}
           />
           <Button
@@ -207,25 +182,17 @@ export function CheckinForm({
             </p>
           )}
 
-          {nlSummary && (
-            <div className="space-y-1 text-sm">
-              {nlSummary.recognized.length > 0 ? (
+          {nlRecognized && (
+            <div className="text-sm">
+              {nlRecognized.length > 0 ? (
                 <p>
                   Ho compilato:{" "}
-                  <span className="font-medium">
-                    {nlSummary.recognized.join(", ")}
-                  </span>
+                  <span className="font-medium">{nlRecognized.join(", ")}</span>
                   . Controlla e salva.
                 </p>
               ) : (
                 <p className="text-muted-foreground">
                   Non ho riconosciuto campi: compila il form a mano.
-                </p>
-              )}
-              {nlSummary.unmatched.length > 0 && (
-                <p className="text-muted-foreground">
-                  Non tra i tuoi farmaci: {nlSummary.unmatched.join(", ")} —
-                  aggiungilo dalle Impostazioni se vuoi tracciarlo.
                 </p>
               )}
             </div>
@@ -298,27 +265,6 @@ export function CheckinForm({
             </div>
           </div>
 
-          {/* Farmaci */}
-          {medications.length > 0 && (
-            <div className="space-y-3">
-              <Label>Farmaci assunti oggi</Label>
-              <div className="space-y-2">
-                {medications.map((med) => (
-                  <label
-                    key={med.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-input p-3"
-                  >
-                    <Checkbox
-                      checked={medicationIds.includes(med.id)}
-                      onCheckedChange={(c) => toggleMed(med.id, c === true)}
-                    />
-                    <span className="text-sm">{med.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Note */}
           <div className="space-y-2">
             <Label htmlFor="notes">Note libere</Label>
@@ -337,11 +283,7 @@ export function CheckinForm({
             </p>
           )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={saving || done}
-          >
+          <Button type="submit" className="w-full" disabled={saving || done}>
             {done
               ? "Salvato ✓"
               : saving

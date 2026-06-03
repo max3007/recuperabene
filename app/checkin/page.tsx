@@ -15,7 +15,6 @@ export default async function CheckinPage() {
   const today = startOfLocalDay();
   const existing = await prisma.checkIn.findUnique({
     where: { patientId_date: { patientId: patient.id, date: today } },
-    include: { medications: true },
   });
 
   const defaults: CheckinDefaults = existing
@@ -24,25 +23,19 @@ export default async function CheckinPage() {
         mobility: existing.mobility,
         mood: existing.mood,
         notes: existing.notes,
-        medicationIds: existing.medications.map((m) => m.id),
       }
     : {
         painLevel: 3,
         mobility: "indoors",
         mood: 3,
         notes: "",
-        medicationIds: patient.medications.map((m) => m.id),
       };
 
   return (
     <div className="flex min-h-dvh flex-col">
       <AppHeader subtitle={`Ciao ${patient.name}`} />
       <main className="mx-auto w-full max-w-screen-sm flex-1 p-4">
-        <CheckinForm
-          medications={patient.medications}
-          defaults={defaults}
-          isEditing={Boolean(existing)}
-        />
+        <CheckinForm defaults={defaults} isEditing={Boolean(existing)} />
       </main>
       <Nav />
     </div>

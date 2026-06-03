@@ -14,7 +14,7 @@ import { TodayMeds } from "@/components/TodayMeds";
 import { Button } from "@/components/ui/button";
 import { mobilityScore } from "@/lib/constants";
 import { calcStreak, daysSince, isSameLocalDay } from "@/lib/date";
-import { buildTodayDoses, doseKey } from "@/lib/medications";
+import { buildPrnMeds, buildTodayDoses, doseKey } from "@/lib/medications";
 import { getCheckIns, getPatient, getTodayIntakes } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,12 @@ export default async function DashboardPage() {
   const takenKeys = new Set(
     intakes.map((i) => doseKey(i.medicationId, i.time)),
   );
+  const countByMed = new Map<string, number>();
+  for (const i of intakes) {
+    countByMed.set(i.medicationId, (countByMed.get(i.medicationId) ?? 0) + 1);
+  }
   const todayDoses = buildTodayDoses(patient.medications, takenKeys);
+  const prnMeds = buildPrnMeds(patient.medications, countByMed);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -60,7 +65,7 @@ export default async function DashboardPage() {
           </Button>
         )}
 
-        <TodayMeds doses={todayDoses} />
+        <TodayMeds doses={todayDoses} prnMeds={prnMeds} />
 
         {checkIns.length > 0 ? (
           <RecoveryCharts data={chartData} />

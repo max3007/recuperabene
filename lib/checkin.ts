@@ -7,16 +7,16 @@ export type CheckInInput = {
   mobility: string;
   mood: number;
   notes: string;
-  medicationIds: string[];
 };
 
 // Valida il corpo di un check-in. Ritorna l'input pulito o null se non valido.
-// La validazione dell'appartenenza dei farmaci avviene a parte (serve il paziente).
+// I farmaci NON fanno più parte del check-in: l'assunzione si registra dalle
+// dosi (MedicationIntake), unica fonte di verità.
 export function parseCheckInBody(body: unknown): CheckInInput | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
 
-  const { painLevel, mobility, mood, notes, medicationIds } = b;
+  const { painLevel, mobility, mood, notes } = b;
 
   if (
     typeof painLevel !== "number" ||
@@ -33,25 +33,10 @@ export function parseCheckInBody(body: unknown): CheckInInput | null {
     return null;
   }
 
-  const ids = Array.isArray(medicationIds)
-    ? medicationIds.filter((id): id is string => typeof id === "string")
-    : [];
-
   return {
     painLevel,
     mobility,
     mood,
     notes: typeof notes === "string" ? notes.trim() : "",
-    medicationIds: ids,
   };
-}
-
-// Tiene solo i farmaci che appartengono davvero al paziente (security: evita di
-// collegare ID arbitrari a un check-in).
-export function ownedMedicationIds(
-  requested: string[],
-  patientMedicationIds: string[],
-): string[] {
-  const owned = new Set(patientMedicationIds);
-  return requested.filter((id) => owned.has(id));
 }

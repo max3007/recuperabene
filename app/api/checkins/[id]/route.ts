@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { ownedMedicationIds, parseCheckInBody } from "@/lib/checkin";
+import { parseCheckInBody } from "@/lib/checkin";
 
 type Params = { params: { id: string } };
 
@@ -18,16 +18,11 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const existing = await prisma.checkIn.findUnique({
     where: { id: params.id },
-    select: { id: true, patient: { select: { medications: { select: { id: true } } } } },
+    select: { id: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Check-in non trovato." }, { status: 404 });
   }
-
-  const meds = ownedMedicationIds(
-    input.medicationIds,
-    existing.patient.medications.map((m) => m.id),
-  ).map((id) => ({ id }));
 
   await prisma.checkIn.update({
     where: { id: params.id },
@@ -36,7 +31,6 @@ export async function PATCH(req: Request, { params }: Params) {
       mobility: input.mobility,
       mood: input.mood,
       notes: input.notes,
-      medications: { set: meds },
     },
   });
 
