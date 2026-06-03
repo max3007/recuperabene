@@ -4,7 +4,9 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { ClipboardCheck } from "lucide-react";
 
+import { DashboardHero } from "@/components/DashboardHero";
 import { InsightsPanel } from "@/components/InsightsPanel";
+import { MilestoneBanner } from "@/components/MilestoneBanner";
 import { AppHeader, Nav } from "@/components/Nav";
 import { RecoveryCharts, type ChartPoint } from "@/components/RecoveryCharts";
 import { StatCards } from "@/components/StatCards";
@@ -36,6 +38,10 @@ export default async function DashboardPage() {
     <div className="flex min-h-dvh flex-col">
       <AppHeader subtitle={`Recupero di ${patient.name}`} />
       <main className="mx-auto w-full max-w-screen-sm flex-1 space-y-4 p-4">
+        <DashboardHero name={patient.name} daysSinceOp={daysSinceOp} />
+
+        <MilestoneBanner daysSinceOp={daysSinceOp} />
+
         <StatCards daysSinceOp={daysSinceOp} streak={streak} />
 
         {!loggedToday && (
@@ -49,8 +55,10 @@ export default async function DashboardPage() {
         {checkIns.length > 0 ? (
           <RecoveryCharts data={chartData} />
         ) : (
-          <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Nessun dato ancora. Fai il tuo primo check-in per vedere i grafici.
+          <p className="rounded-lg border border-dashed p-6 text-center text-sm leading-relaxed text-muted-foreground">
+            Qui appariranno i grafici del tuo recupero. 🌱
+            <br />
+            Fai il primo check-in quando te la senti, senza fretta.
           </p>
         )}
 
