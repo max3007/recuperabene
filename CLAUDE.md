@@ -62,8 +62,10 @@ Confini chiave:
 - `components/` — componenti UI (inclusi quelli di shadcn/ui in `components/ui/`)
 - `lib/` — helper (Prisma client, client Anthropic, utility date/streak)
 - `prisma/` — `schema.prisma`, migration, `seed.ts` (5 giorni di check-in di esempio)
-- `deploy/` — config di produzione (`Caddyfile`, systemd unit, `backup.sh`); guida in
-  [DEPLOY.md](DEPLOY.md) (EC2 free-tier + Caddy HTTPS/Basic Auth, uso personale)
+- `deploy/` — config per il path VM (`Caddyfile`, systemd unit, `backup.sh`).
+- `middleware.ts` — Basic Auth perimetrale (produzione Vercel; vedi nota auth sotto).
+- Deploy: vedi [DEPLOY.md](DEPLOY.md). **Opzione A (attuale)**: Vercel + Turso (libSQL).
+  **Opzione B**: EC2 free-tier + Caddy.
 
 ## Convenzioni di nomi
 
@@ -96,19 +98,20 @@ i componenti, Playwright per E2E. Da decidere e poi documentare comando + dove v
   rassicurante; imposto nel system prompt (`INSIGHTS_SYSTEM_PROMPT`), non sperato.
 - **Prompt caching**: il system prompt è stabile e marcato `cache_control`; i check-in
   (volatili) stanno nel messaggio utente, dopo il prefisso cacheabile.
-- **Nessuna autenticazione (scelta consapevole)**: le route `app/api/*` non hanno auth.
-  È coerente col design mono-paziente, locale, su SQLite. Le scritture validano che i
-  `medicationIds` appartengano al paziente (`ownedMedicationIds`), ma chiunque possa
-  raggiungere l'origine può leggere/scrivere i dati. **Se un giorno deployi su un server
-  o lo rendi multi-utente, l'auth (es. next-auth) diventa obbligatoria** prima di esporlo,
-  scopando ogni route sul paziente autenticato.
+- **Autenticazione**: in **locale** le route non hanno auth (design mono-paziente). In
+  **produzione** la protezione è **obbligatoria** ed è implementata in [middleware.ts](middleware.ts):
+  Basic Auth su tutte le route, credenziali da env (`BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`),
+  **fail-closed** (se mancano, in produzione blocca tutto). Sostituisce il Basic Auth di Caddy
+  del path VM. Resta single-secret, non per-utente: **se diventa multi-utente serve auth
+  applicativa con scoping per paziente** (es. next-auth).
   - **Endpoint AI = vettore costi**: `/api/insights` e `/api/checkins/parse` chiamano
-    Claude (spesa per richiesta). Una volta esposti, oltre all'auth servono **rate limiting
-    e quota**, altrimenti sono abusabili per far bruciare token.
-  - **In produzione** (vedi [DEPLOY.md](DEPLOY.md)) la protezione è **al perimetro**:
-    Caddy fa Basic Auth + HTTPS davanti all'app, bloccando le richieste non autenticate
-    prima che raggiungano Node. Accettabile per uso strettamente personale (un solo
-    utente); per multi-utente serve comunque auth applicativa con scoping per paziente.
+    Claude (spesa per richiesta). Hanno un **rate limit per IP** ([lib/rate-limit.ts](lib/rate-limit.ts)),
+    best-effort in memoria: difesa in profondità, non un limite distribuito forte (su
+    serverless lo stato è per-istanza). La protezione vera resta il Basic Auth.
+  - **DB in produzione**: file SQLite non persiste su Vercel (FS effimero) → si usa **Turso**
+    (libSQL). [lib/prisma.ts](lib/prisma.ts) sceglie l'adapter libSQL se `TURSO_DATABASE_URL`
+    è presente, altrimenti il file locale. Le migration vanno applicate a Turso **a mano**
+    (`turso db shell ... < migration.sql`): Prisma Migrate non parla con libSQL.
 
 ## Cosa NON fare in questo repo
 

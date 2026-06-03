@@ -1,4 +1,74 @@
-# Deploy di RecuperaBene su AWS EC2 (uso personale)
+# Deploy di RecuperaBene
+
+Due opzioni documentate:
+
+- **Opzione A — Vercel + Turso** (*deploy attuale in produzione*): serverless, gratis,
+  zero manutenzione. Vedi sotto.
+- **Opzione B — AWS EC2 + Caddy**: una VM tutta tua. Vedi più in basso.
+
+---
+
+## Opzione A — Vercel + Turso (attuale)
+
+L'app gira su **Vercel** (serverless) con il database su **Turso** (libSQL, SQLite-compatibile)
+perché il filesystem di Vercel è effimero e non può ospitare un file SQLite persistente.
+
+```
+Internet ──HTTPS──> Vercel (middleware Basic Auth) ──> Route handlers ──> Turso (libSQL, eu-west-1)
+```
+
+**Adattamenti rispetto alla VM** (già nel codice):
+
+- [lib/prisma.ts](lib/prisma.ts) usa l'adapter libSQL *web* quando `TURSO_DATABASE_URL` è
+  presente; in locale resta il file SQLite via `DATABASE_URL`.
+- [middleware.ts](middleware.ts) fa **Basic Auth** su tutte le route (sostituisce il Basic
+  Auth di Caddy): **fail-closed** in produzione (se le credenziali mancano, blocca tutto).
+- Gli endpoint AI (`/api/insights`, `/api/checkins/parse`) hanno un **rate limit** per IP
+  ([lib/rate-limit.ts](lib/rate-limit.ts)): best-effort in memoria, difesa in profondità
+  contro il burn di token (la protezione vera è il Basic Auth).
+- Lo script `build` esegue `prisma generate && next build`.
+
+### Setup (una tantum, via CLI)
+
+```bash
+# 1) DB su Turso
+brew install tursodatabase/tap/turso
+turso auth login
+turso db create recuperabene
+turso db shell recuperabene < prisma/migrations/20260603061555_init/migration.sql
+
+# 2) progetto Vercel + variabili d'ambiente (Production)
+pnpm dlx vercel login
+pnpm dlx vercel link --yes --project recuperabene
+TURSO_TOKEN=$(turso db tokens create recuperabene)
+printf '%s' "$(turso db show recuperabene --url)" | pnpm dlx vercel env add TURSO_DATABASE_URL production
+printf '%s' "$TURSO_TOKEN"                        | pnpm dlx vercel env add TURSO_AUTH_TOKEN production
+printf '%s' "sk-ant-LA-TUA-CHIAVE"                | pnpm dlx vercel env add ANTHROPIC_API_KEY production
+printf '%s' "max"                                 | pnpm dlx vercel env add BASIC_AUTH_USER production
+printf '%s' "UNA-PASSWORD-ROBUSTA"                | pnpm dlx vercel env add BASIC_AUTH_PASSWORD production
+
+# 3) deploy
+pnpm dlx vercel --prod
+```
+
+Il progetto è collegato al repo GitHub: ogni `git push` su `main` triggera un deploy di
+produzione. In alternativa, deploy manuale con `pnpm dlx vercel --prod`.
+
+> ⚠️ Se cambi la migration/schema, **riapplica lo SQL a Turso** (`turso db shell ... < ...`):
+> Prisma Migrate non parla direttamente con libSQL, quindi qui si applica il SQL a mano.
+
+### Variabili d'ambiente (Vercel → Production)
+
+| Var | Valore |
+|---|---|
+| `TURSO_DATABASE_URL` | `libsql://recuperabene-<org>.aws-eu-west-1.turso.io` |
+| `TURSO_AUTH_TOKEN` | token da `turso db tokens create` (segreto) |
+| `ANTHROPIC_API_KEY` | chiave Anthropic (segreto) |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | credenziali per aprire l'app |
+
+---
+
+# Opzione B — AWS EC2 + Caddy (uso personale)
 
 Guida per mettere l'app online su una EC2 free-tier, accessibile **solo da te**
 tramite password + HTTPS (Caddy). Architettura:
