@@ -88,6 +88,11 @@ i componenti, Playwright per E2E. Da decidere e poi documentare comando + dove v
   rassicurante; imposto nel system prompt (`INSIGHTS_SYSTEM_PROMPT`), non sperato.
 - **Prompt caching**: il system prompt è stabile e marcato `cache_control`; i check-in
   (volatili) stanno nel messaggio utente, dopo il prefisso cacheabile.
+- **Nessuna autenticazione (scelta consapevole)**: le route `app/api/*` non hanno auth.
+  È coerente col design mono-paziente, locale, su SQLite. Le scritture validano che i
+  `medicationIds` appartengano al paziente (`ownedMedicationIds`), ma chiunque possa
+  raggiungere l'origine può leggere/scrivere i dati. **Se un giorno deployi su un server
+  o lo rendi multi-utente, l'auth (es. next-auth) diventa obbligatoria** prima di esporlo.
 
 ## Cosa NON fare in questo repo
 
