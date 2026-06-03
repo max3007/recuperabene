@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
+  Cat,
   ClipboardCheck,
+  Heart,
   History,
   LayoutDashboard,
   Settings,
@@ -52,10 +53,11 @@ export function AppHeader({ subtitle }: { subtitle?: string }) {
   return (
     <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex max-w-screen-sm items-center gap-2 px-4 py-3">
-        <Activity className="h-6 w-6 text-primary" />
+        <Cat className="h-6 w-6 text-primary" />
         <div>
-          <p className="text-lg font-semibold leading-none text-primary">
+          <p className="flex items-center gap-1 text-lg font-semibold leading-none text-primary">
             RecuperaBene
+            <Heart className="h-4 w-4 fill-current" />
           </p>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
