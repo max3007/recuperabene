@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
@@ -41,7 +43,24 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
 }
 
 function HistoryItem({ entry }: { entry: HistoryEntry }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (
+      !window.confirm(`Eliminare il check-in di ${entry.dateLabel}?`)
+    ) {
+      return;
+    }
+    setDeleting(true);
+    const res = await fetch(`/api/checkins/${entry.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setDeleting(false);
+      return;
+    }
+    router.refresh();
+  }
 
   return (
     <Card>
@@ -85,6 +104,27 @@ function HistoryItem({ entry }: { entry: HistoryEntry }) {
           {entry.notes.trim() && (
             <Detail label="Note">{entry.notes}</Detail>
           )}
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/checkin/${entry.id}/edit`)}
+            >
+              <Pencil /> Modifica
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              disabled={deleting}
+              onClick={remove}
+            >
+              <Trash2 /> {deleting ? "Elimino…" : "Elimina"}
+            </Button>
+          </div>
         </CardContent>
       )}
     </Card>

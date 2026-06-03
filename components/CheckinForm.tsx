@@ -43,10 +43,16 @@ export function CheckinForm({
   medications,
   defaults,
   isEditing,
+  checkInId,
+  dateLabel,
 }: {
   medications: Medication[];
   defaults: CheckinDefaults;
   isEditing: boolean;
+  // Se presente, il form modifica QUEL check-in (PATCH) invece di fare
+  // l'upsert di oggi (POST). Usato dallo storico per editare i giorni passati.
+  checkInId?: string;
+  dateLabel?: string;
 }) {
   const router = useRouter();
   const [painLevel, setPainLevel] = useState(defaults.painLevel);
@@ -66,16 +72,21 @@ export function CheckinForm({
     );
   }
 
+  const editingPast = Boolean(checkInId);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaving(true);
 
-    const res = await fetch("/api/checkins", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ painLevel, mobility, mood, notes, medicationIds }),
-    });
+    const res = await fetch(
+      editingPast ? `/api/checkins/${checkInId}` : "/api/checkins",
+      {
+        method: editingPast ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ painLevel, mobility, mood, notes, medicationIds }),
+      },
+    );
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -87,17 +98,21 @@ export function CheckinForm({
     setDone(true);
     setSaving(false);
     router.refresh();
-    setTimeout(() => router.push("/dashboard"), 900);
+    setTimeout(() => router.push(editingPast ? "/history" : "/dashboard"), 900);
   }
 
   return (
     <Card className="mx-auto w-full max-w-md">
       <CardHeader>
-        <CardTitle className="text-2xl">Check-in di oggi</CardTitle>
+        <CardTitle className="text-2xl">
+          {editingPast ? "Modifica check-in" : "Check-in di oggi"}
+        </CardTitle>
         <CardDescription>
-          {isEditing
-            ? "Hai già registrato oggi: puoi modificare fino a mezzanotte."
-            : "Come ti senti? Rispondi con calma, ci vuole un minuto."}
+          {editingPast
+            ? `Stai modificando il check-in di ${dateLabel ?? "un giorno passato"}.`
+            : isEditing
+              ? "Hai già registrato oggi: puoi modificare fino a mezzanotte."
+              : "Come ti senti? Rispondi con calma, ci vuole un minuto."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -215,7 +230,7 @@ export function CheckinForm({
               ? "Salvato ✓"
               : saving
                 ? "Salvataggio…"
-                : isEditing
+                : editingPast || isEditing
                   ? "Aggiorna check-in"
                   : "Salva check-in"}
           </Button>
