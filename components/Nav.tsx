@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ClipboardCheck, History, LayoutDashboard } from "lucide-react";
+import {
+  Activity,
+  ClipboardCheck,
+  History,
+  LayoutDashboard,
+  Settings,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,6 +16,7 @@ const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/checkin", label: "Check-in", icon: ClipboardCheck },
   { href: "/history", label: "Storico", icon: History },
+  { href: "/settings", label: "Impostazioni", icon: Settings },
 ];
 
 export function Nav() {
