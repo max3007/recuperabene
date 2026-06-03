@@ -17,7 +17,8 @@ dashboard, con insight generati da Claude.
 - **Prisma** + **SQLite** (file locale, niente DB remoto)
 - **Tailwind CSS** + **shadcn/ui**
 - **Recharts** per i grafici
-- **Anthropic Claude API** per gli insight — modello `claude-sonnet-4-6`
+- **Anthropic Claude API** — insight su `claude-sonnet-4-6`; parsing del check-in in
+  linguaggio naturale su `claude-haiku-4-5` (task leggero → modello veloce/economico)
 - Package manager: **pnpm**
 
 ## Architettura in 60 secondi
@@ -32,6 +33,11 @@ Flusso principale:
    umore, streak, giorni dall'operazione).
 4. **AI Insights**: bottone "Analizza il mio recupero" → API route che invia gli
    ultimi 7 check-in a Claude → risposta in italiano.
+5. **Check-in in linguaggio naturale**: nel form, una frase libera →
+   `POST /api/checkins/parse` (Haiku, structured output) → **precompila** i campi
+   riconosciuti. L'endpoint **non scrive sul DB**: l'utente rivede e salva col path
+   normale (`interpreta → rivedi → conferma`). I farmaci sono mappati per nome agli
+   id del profilo; quelli sconosciuti sono solo segnalati, mai creati.
 
 Confini chiave:
 
@@ -92,7 +98,11 @@ i componenti, Playwright per E2E. Da decidere e poi documentare comando + dove v
   È coerente col design mono-paziente, locale, su SQLite. Le scritture validano che i
   `medicationIds` appartengano al paziente (`ownedMedicationIds`), ma chiunque possa
   raggiungere l'origine può leggere/scrivere i dati. **Se un giorno deployi su un server
-  o lo rendi multi-utente, l'auth (es. next-auth) diventa obbligatoria** prima di esporlo.
+  o lo rendi multi-utente, l'auth (es. next-auth) diventa obbligatoria** prima di esporlo,
+  scopando ogni route sul paziente autenticato.
+  - **Endpoint AI = vettore costi**: `/api/insights` e `/api/checkins/parse` chiamano
+    Claude (spesa per richiesta). Una volta esposti, oltre all'auth servono **rate limiting
+    e quota**, altrimenti sono abusabili per far bruciare token.
 
 ## Cosa NON fare in questo repo
 

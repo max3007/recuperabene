@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,8 @@ import { cn } from "@/lib/utils";
 import {
   MOBILITY_OPTIONS,
   MOOD_OPTIONS,
+  mobilityLabel,
+  moodEmoji,
   painEmoji,
 } from "@/lib/constants";
 
@@ -66,6 +69,15 @@ export function CheckinForm({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // Input in linguaggio naturale: interpreta → precompila → l'utente conferma.
+  const [nlText, setNlText] = useState("");
+  const [nlBusy, setNlBusy] = useState(false);
+  const [nlError, setNlError] = useState<string | null>(null);
+  const [nlSummary, setNlSummary] = useState<{
+    recognized: string[];
+    unmatched: string[];
+  } | null>(null);
+
   function toggleMed(id: string, checked: boolean) {
     setMedicationIds((prev) =>
       checked ? [...prev, id] : prev.filter((m) => m !== id),
@@ -73,6 +85,55 @@ export function CheckinForm({
   }
 
   const editingPast = Boolean(checkInId);
+
+  async function interpret() {
+    const text = nlText.trim();
+    if (!text) return;
+    setNlError(null);
+    setNlSummary(null);
+    setNlBusy(true);
+
+    const res = await fetch("/api/checkins/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setNlBusy(false);
+
+    if (!res.ok) {
+      setNlError(data.error ?? "Interpretazione non riuscita.");
+      return;
+    }
+
+    // Trascrive nel form SOLO i campi riconosciuti; gli altri restano com'erano.
+    const recognized: string[] = [];
+    if (data.painLevel !== null) {
+      setPainLevel(data.painLevel);
+      recognized.push(`dolore ${data.painLevel}/10`);
+    }
+    if (data.mobility) {
+      setMobility(data.mobility);
+      recognized.push(`mobilità "${mobilityLabel(data.mobility)}"`);
+    }
+    if (data.mood !== null) {
+      setMood(data.mood);
+      recognized.push(`umore ${moodEmoji(data.mood)}`);
+    }
+    if (data.notes) {
+      setNotes(data.notes);
+      recognized.push("note");
+    }
+    // I farmaci si toccano solo se ne ha effettivamente parlato.
+    if (data.medicationIds.length > 0 || data.unmatchedMedications.length > 0) {
+      setMedicationIds(data.medicationIds);
+      if (data.medicationIds.length > 0) {
+        recognized.push(`${data.medicationIds.length} farmaci`);
+      }
+    }
+
+    setNlSummary({ recognized, unmatched: data.unmatchedMedications ?? [] });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,6 +177,61 @@ export function CheckinForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Input in linguaggio naturale: scorciatoia che precompila il form. */}
+        <div className="mb-6 space-y-3 rounded-xl border border-primary/30 bg-accent/30 p-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
+              Descrivi la tua giornata
+            </span>
+          </div>
+          <Textarea
+            value={nlText}
+            onChange={(e) => setNlText(e.target.value)}
+            placeholder="Es. «Oggi dolore sul 6, camminato un po' in giardino, preso paracetamolo, umore così così»"
+            rows={2}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={interpret}
+            disabled={nlBusy || !nlText.trim()}
+          >
+            {nlBusy ? "Interpreto…" : "Interpreta e compila"}
+          </Button>
+
+          {nlError && (
+            <p className="text-sm text-destructive" role="alert">
+              {nlError}
+            </p>
+          )}
+
+          {nlSummary && (
+            <div className="space-y-1 text-sm">
+              {nlSummary.recognized.length > 0 ? (
+                <p>
+                  Ho compilato:{" "}
+                  <span className="font-medium">
+                    {nlSummary.recognized.join(", ")}
+                  </span>
+                  . Controlla e salva.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Non ho riconosciuto campi: compila il form a mano.
+                </p>
+              )}
+              {nlSummary.unmatched.length > 0 && (
+                <p className="text-muted-foreground">
+                  Non tra i tuoi farmaci: {nlSummary.unmatched.join(", ")} —
+                  aggiungilo dalle Impostazioni se vuoi tracciarlo.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-7">
           {/* Dolore */}
           <div className="space-y-3">
