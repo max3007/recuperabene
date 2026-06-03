@@ -1,0 +1,25 @@
+# systemd unit per RecuperaBene (Next.js in produzione).
+# Copia in /etc/systemd/system/recuperabene.service, poi:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now recuperabene
+#
+# Presuppone: utente "ubuntu", repo in /home/ubuntu/recuperabene, Node in /usr/bin/node,
+# build già fatta (pnpm build). Le variabili (DATABASE_URL, ANTHROPIC_API_KEY) stanno
+# nel file .env — scrivile SENZA virgolette (systemd non fa parsing di shell).
+
+[Unit]
+Description=RecuperaBene (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/recuperabene
+EnvironmentFile=/home/ubuntu/recuperabene/.env
+# Avvio diretto via node per evitare problemi di PATH con pnpm sotto systemd.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# RecuperaBene — reverse proxy: HTTPS automatico + Basic Auth ("solo io").
+# Caddy ottiene e rinnova da solo il certificato Let's Encrypt per il dominio.
+# Solo Caddy parla con l'app (porta 3000, non esposta su internet).
+#
+# Prima di usarlo:
+#   1) sostituisci il dominio qui sotto col tuo (es. DuckDNS — vedi DEPLOY.md)
+#   2) genera l'hash della password:  caddy hash-password
+#      e incollalo al posto di REPLACE_WITH_BCRYPT_HASH (tieni i $)
+#   3) cambia "max" col nome utente che preferisci
+
+recuperabene-TUO.duckdns.org {
+	# Le richieste senza credenziali valide vengono bloccate QUI,
+	# prima di raggiungere Node: protegge anche gli endpoint AI a pagamento.
+	basic_auth {
+		max REPLACE_WITH_BCRYPT_HASH
+	}
+
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Nota: su Caddy < 2.8 la direttiva si chiama "basicauth" (senza underscore).

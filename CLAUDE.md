@@ -62,6 +62,8 @@ Confini chiave:
 - `components/` — componenti UI (inclusi quelli di shadcn/ui in `components/ui/`)
 - `lib/` — helper (Prisma client, client Anthropic, utility date/streak)
 - `prisma/` — `schema.prisma`, migration, `seed.ts` (5 giorni di check-in di esempio)
+- `deploy/` — config di produzione (`Caddyfile`, systemd unit, `backup.sh`); guida in
+  [DEPLOY.md](DEPLOY.md) (EC2 free-tier + Caddy HTTPS/Basic Auth, uso personale)
 
 ## Convenzioni di nomi
 
@@ -103,6 +105,10 @@ i componenti, Playwright per E2E. Da decidere e poi documentare comando + dove v
   - **Endpoint AI = vettore costi**: `/api/insights` e `/api/checkins/parse` chiamano
     Claude (spesa per richiesta). Una volta esposti, oltre all'auth servono **rate limiting
     e quota**, altrimenti sono abusabili per far bruciare token.
+  - **In produzione** (vedi [DEPLOY.md](DEPLOY.md)) la protezione è **al perimetro**:
+    Caddy fa Basic Auth + HTTPS davanti all'app, bloccando le richieste non autenticate
+    prima che raggiungano Node. Accettabile per uso strettamente personale (un solo
+    utente); per multi-utente serve comunque auth applicativa con scoping per paziente.
 
 ## Cosa NON fare in questo repo
 
