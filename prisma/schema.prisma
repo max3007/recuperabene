@@ -1,0 +1,53 @@
+// RecuperaBene — schema Prisma (SQLite)
+// Nota: SQLite non supporta gli enum nativi di Prisma.
+// mobility e mood sono modellati come String/Int con validazione lato app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id            String       @id @default(cuid())
+  name          String
+  operationType String
+  operationDate DateTime
+  createdAt     DateTime     @default(now())
+
+  medications Medication[]
+  checkIns    CheckIn[]
+}
+
+model Medication {
+  id        String  @id @default(cuid())
+  name      String
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Check-in in cui questo farmaco è stato segnato come assunto
+  checkIns CheckIn[]
+}
+
+model CheckIn {
+  id        String   @id @default(cuid())
+  // Giorno del check-in, normalizzato a mezzanotte locale. Uno per giorno per paziente.
+  date      DateTime
+  painLevel Int // 0–10
+  mobility  String // "bed_rest" | "indoors" | "outdoors" | "normal"
+  mood      Int // 1–5 (corrisponde alle 5 emoji)
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Farmaci assunti in questo check-in
+  medications Medication[]
+
+  @@unique([patientId, date])
+}

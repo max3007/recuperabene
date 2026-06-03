@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tema "medical-but-warm": fondo crema tenue, primario teal #0d9488 */
+    --background: 30 33% 98%;
+    --foreground: 200 18% 18%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 18% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 18% 18%;
+
+    --primary: 175 84% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 174 30% 92%;
+    --secondary-foreground: 175 60% 22%;
+
+    --muted: 180 20% 94%;
+    --muted-foreground: 200 10% 45%;
+
+    --accent: 174 45% 88%;
+    --accent-foreground: 175 60% 22%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 16% 88%;
+    --input: 180 16% 86%;
+    --ring: 175 84% 32%;
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+  }
+}
