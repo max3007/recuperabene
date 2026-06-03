@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getAnthropic, INSIGHTS_MODEL } from "@/lib/anthropic";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import {
   buildCheckInsText,
   INSIGHTS_SCHEMA,
@@ -11,7 +12,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: Request) {
+  // Endpoint a costo (chiama Claude): limita le raffiche per IP.
+  const rl = rateLimit(`insights:${clientIp(req)}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Troppe richieste. Riprova tra poco." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const patient = await prisma.patient.findFirst();
   if (!patient) {
     return NextResponse.json(

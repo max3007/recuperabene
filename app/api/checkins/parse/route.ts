@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getAnthropic } from "@/lib/anthropic";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { MOBILITY_OPTIONS } from "@/lib/constants";
 import {
   buildParsePrompt,
@@ -16,6 +17,15 @@ const VALID_MOBILITY = new Set<string>(MOBILITY_OPTIONS.map((m) => m.value));
 // Interpreta una frase in linguaggio naturale in campi del check-in.
 // NON scrive sul DB: restituisce solo i dati, che il form precompila.
 export async function POST(req: Request) {
+  // Endpoint a costo (chiama Claude): limita le raffiche per IP.
+  const rl = rateLimit(`parse:${clientIp(req)}`, 20, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Troppe richieste. Riprova tra poco." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const body = await req.json().catch(() => null);
   const text = (body as { text?: string } | null)?.text?.trim();
   if (!text) {
