@@ -98,6 +98,13 @@ i componenti, Playwright per E2E. Da decidere e poi documentare comando + dove v
   rassicurante; imposto nel system prompt (`INSIGHTS_SYSTEM_PROMPT`), non sperato.
 - **Prompt caching**: il system prompt è stabile e marcato `cache_control`; i check-in
   (volatili) stanno nel messaggio utente, dopo il prefisso cacheabile.
+- **Farmaci — unica fonte di verità = `MedicationIntake`** (una riga per farmaco/giorno/orario
+  = dose presa). Il check-in **non** registra più i farmaci: la relazione `CheckIn.medications`
+  resta nello schema solo per i dati vecchi, **non si scrive più**. Lo storico ricava i farmaci
+  del giorno dagli intake ([getMedNamesByDay](lib/queries.ts)). Il modello `Medication` ha
+  `asNeeded` (al bisogno/PRN), `active` (archiviazione soft: si **archivia**, non si cancella),
+  `startDate`+`durationDays` (un farmaco appare in "Farmaci di oggi" solo finché la terapia è in
+  corso — vedi [isMedActiveOn](lib/medications.ts)). Dose PRN registrata all'ora corrente IT.
 - **Autenticazione**: in **locale** le route non hanno auth (design mono-paziente). In
   **produzione** la protezione è **obbligatoria** ed è implementata in [middleware.ts](middleware.ts):
   Basic Auth su tutte le route, credenziali da env (`BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`),
