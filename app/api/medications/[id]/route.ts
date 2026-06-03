@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { serializeTimes } from "@/lib/medications";
 
 type Params = { params: { id: string } };
 
-// Rinomina un farmaco.
+type Body = { name?: string; dosage?: string; times?: string };
+
+// Aggiorna nome, dose e orari di un farmaco.
 export async function PATCH(req: Request, { params }: Params) {
-  const body = await req.json().catch(() => null);
-  const name = (body as { name?: string } | null)?.name?.trim();
+  const body = (await req.json().catch(() => null)) as Body | null;
+  const name = body?.name?.trim();
   if (!name) {
     return NextResponse.json(
       { error: "Il nome del farmaco è obbligatorio." },
@@ -18,7 +21,11 @@ export async function PATCH(req: Request, { params }: Params) {
   try {
     await prisma.medication.update({
       where: { id: params.id },
-      data: { name },
+      data: {
+        name,
+        dosage: body?.dosage?.trim() || null,
+        times: serializeTimes(body?.times),
+      },
     });
   } catch {
     return NextResponse.json({ error: "Farmaco non trovato." }, { status: 404 });

@@ -10,10 +10,12 @@ import { MilestoneBanner } from "@/components/MilestoneBanner";
 import { AppHeader, Nav } from "@/components/Nav";
 import { RecoveryCharts, type ChartPoint } from "@/components/RecoveryCharts";
 import { StatCards } from "@/components/StatCards";
+import { TodayMeds } from "@/components/TodayMeds";
 import { Button } from "@/components/ui/button";
 import { mobilityScore } from "@/lib/constants";
 import { calcStreak, daysSince, isSameLocalDay } from "@/lib/date";
-import { getCheckIns, getPatient } from "@/lib/queries";
+import { buildTodayDoses, doseKey } from "@/lib/medications";
+import { getCheckIns, getPatient, getTodayIntakes } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,12 @@ export default async function DashboardPage() {
   const daysSinceOp = daysSince(patient.operationDate);
   const loggedToday = checkIns.some((c) => isSameLocalDay(c.date, new Date()));
 
+  const intakes = await getTodayIntakes(patient.id);
+  const takenKeys = new Set(
+    intakes.map((i) => doseKey(i.medicationId, i.time)),
+  );
+  const todayDoses = buildTodayDoses(patient.medications, takenKeys);
+
   return (
     <div className="flex min-h-dvh flex-col">
       <AppHeader subtitle={`Recupero di ${patient.name}`} />
@@ -51,6 +59,8 @@ export default async function DashboardPage() {
             </Link>
           </Button>
         )}
+
+        <TodayMeds doses={todayDoses} />
 
         {checkIns.length > 0 ? (
           <RecoveryCharts data={chartData} />

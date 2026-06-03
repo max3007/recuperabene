@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { serializeTimes } from "@/lib/medications";
+
+type Body = { name?: string; dosage?: string; times?: string };
 
 // Aggiunge un farmaco al paziente.
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  const name = (body as { name?: string } | null)?.name?.trim();
+  const body = (await req.json().catch(() => null)) as Body | null;
+  const name = body?.name?.trim();
   if (!name) {
     return NextResponse.json(
       { error: "Il nome del farmaco è obbligatorio." },
@@ -22,7 +25,12 @@ export async function POST(req: Request) {
   }
 
   const med = await prisma.medication.create({
-    data: { name, patientId: patient.id },
+    data: {
+      name,
+      dosage: body?.dosage?.trim() || null,
+      times: serializeTimes(body?.times),
+      patientId: patient.id,
+    },
   });
 
   return NextResponse.json({ id: med.id, name: med.name }, { status: 201 });

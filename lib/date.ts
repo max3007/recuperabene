@@ -1,12 +1,20 @@
-import { differenceInCalendarDays } from "date-fns";
+// Giorno "civile" italiano come chiave-giorno per check-in, farmaci e streak.
+//
+// Importante: su Vercel il runtime è in UTC, quindi non possiamo affidarci al
+// fuso della macchina (e `TZ` è un nome riservato su Vercel, non impostabile).
+// Calcoliamo esplicitamente la data civile in Europe/Rome e la rappresentiamo
+// come mezzanotte UTC di quella data: una chiave canonica, stabile e
+// confrontabile, indipendente dal fuso del runtime.
+const MS_PER_DAY = 86_400_000;
 
-// Mezzanotte locale di una data: usata come chiave-giorno per i check-in.
-// Importante: usiamo la data *locale*, non UTC, per evitare che un check-in
-// serale finisca nel giorno sbagliato.
 export function startOfLocalDay(d: Date = new Date()): Date {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  return out;
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  return new Date(`${ymd}T00:00:00.000Z`);
 }
 
 export function isSameLocalDay(a: Date, b: Date): boolean {
@@ -15,22 +23,24 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
 
 // Giorni trascorsi dall'operazione (0 = giorno dell'operazione).
 export function daysSince(operationDate: Date, from: Date = new Date()): number {
-  return Math.max(0, differenceInCalendarDays(from, operationDate));
+  const diff =
+    startOfLocalDay(from).getTime() - startOfLocalDay(operationDate).getTime();
+  return Math.max(0, Math.round(diff / MS_PER_DAY));
 }
 
 // Streak: numero di giorni consecutivi loggati fino a oggi (o ieri).
 // Lo streak resta valido se l'ultimo check-in è di oggi o di ieri; si azzera
 // se manca più di un giorno.
-export function calcStreak(checkInDates: Date[], today: Date = new Date()): number {
+export function calcStreak(
+  checkInDates: Date[],
+  today: Date = new Date(),
+): number {
   if (checkInDates.length === 0) return 0;
 
-  const days = new Set(
-    checkInDates.map((d) => startOfLocalDay(d).getTime()),
-  );
+  const days = new Set(checkInDates.map((d) => startOfLocalDay(d).getTime()));
 
   const start = startOfLocalDay(today);
-  const yesterday = new Date(start);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterday = new Date(start.getTime() - MS_PER_DAY);
 
   // Da dove partire a contare: oggi se loggato, altrimenti ieri.
   let cursor: Date;
@@ -45,8 +55,7 @@ export function calcStreak(checkInDates: Date[], today: Date = new Date()): numb
   let streak = 0;
   while (days.has(cursor.getTime())) {
     streak += 1;
-    cursor = new Date(cursor);
-    cursor.setDate(cursor.getDate() - 1);
+    cursor = new Date(cursor.getTime() - MS_PER_DAY);
   }
   return streak;
 }
