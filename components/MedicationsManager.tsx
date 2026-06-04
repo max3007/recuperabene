@@ -83,6 +83,206 @@ function periodLabel(med: Medication): string | null {
     : `dal ${start}`;
 }
 
+// DraftFields and MedRow are defined at module scope (not inside
+// MedicationsManager) so their component identity is stable across renders.
+// As nested functions they were recreated on every keystroke, remounting the
+// inputs and stealing focus.
+function DraftFields({
+  value,
+  onChange,
+}: {
+  value: Draft;
+  onChange: (d: Draft) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Input
+        value={value.name}
+        onChange={(e) => onChange({ ...value, name: e.target.value })}
+        placeholder="Nome"
+        className="h-9"
+      />
+      <Input
+        value={value.dosage}
+        onChange={(e) => onChange({ ...value, dosage: e.target.value })}
+        placeholder="Dose, es. 1 compressa (facoltativo)"
+        className="h-9"
+      />
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <Checkbox
+          checked={value.asNeeded}
+          onCheckedChange={(c) => onChange({ ...value, asNeeded: c === true })}
+        />
+        Al bisogno (senza orari fissi)
+      </label>
+      {!value.asNeeded && (
+        <Input
+          value={value.times}
+          onChange={(e) => onChange({ ...value, times: e.target.value })}
+          placeholder="Orari, es. 08:00, 20:00"
+          className="h-9"
+        />
+      )}
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-1">
+          <Label className="text-xs text-muted-foreground">Inizio</Label>
+          <Input
+            type="date"
+            value={value.startDate}
+            onChange={(e) => onChange({ ...value, startDate: e.target.value })}
+            className="h-9"
+          />
+        </div>
+        <div className="w-28 space-y-1">
+          <Label className="text-xs text-muted-foreground">Durata (gg)</Label>
+          <Input
+            type="number"
+            min={1}
+            value={value.durationDays}
+            onChange={(e) =>
+              onChange({ ...value, durationDays: e.target.value })
+            }
+            placeholder="∞"
+            className="h-9"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MedRow({
+  med,
+  editingId,
+  edit,
+  setEdit,
+  busy,
+  onSave,
+  onCancelEdit,
+  onStartEdit,
+  onSetActive,
+  onRemove,
+}: {
+  med: Medication;
+  editingId: string | null;
+  edit: Draft;
+  setEdit: (d: Draft) => void;
+  busy: boolean;
+  onSave: (id: string) => void;
+  onCancelEdit: () => void;
+  onStartEdit: (med: Medication) => void;
+  onSetActive: (id: string, value: boolean) => void;
+  onRemove: (id: string, name: string) => void;
+}) {
+  const times = parseTimes(med.times);
+  const period = periodLabel(med);
+  return (
+    <li className="rounded-lg border border-input p-2 pl-3">
+      {editingId === med.id ? (
+        <div className="space-y-2">
+          <DraftFields value={edit} onChange={setEdit} />
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={onCancelEdit}
+            >
+              <X /> Annulla
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={() => onSave(med.id)}
+            >
+              <Check /> Salva
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {med.name}
+              {med.dosage && (
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · {med.dosage}
+                </span>
+              )}
+            </p>
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+              {med.asNeeded ? (
+                <span className="flex items-center gap-1">
+                  <Repeat className="h-3 w-3" /> al bisogno
+                </span>
+              ) : (
+                times.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {times.join(" · ")}
+                  </span>
+                )
+              )}
+              {period && <span>{period}</span>}
+            </p>
+          </div>
+          {med.active ? (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => onStartEdit(med)}
+                aria-label="Modifica"
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                disabled={busy}
+                onClick={() => onSetActive(med.id, false)}
+                aria-label="Archivia"
+                title="Archivia (sospendi senza perdere lo storico)"
+              >
+                <Archive />
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              disabled={busy}
+              onClick={() => onSetActive(med.id, true)}
+              aria-label="Ripristina"
+              title="Ripristina"
+            >
+              <ArchiveRestore />
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-destructive"
+            disabled={busy}
+            onClick={() => onRemove(med.id, med.name)}
+            aria-label="Elimina"
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 export function MedicationsManager({
   medications,
 }: {
@@ -170,184 +370,6 @@ export function MedicationsManager({
     });
   }
 
-  function DraftFields({
-    value,
-    onChange,
-  }: {
-    value: Draft;
-    onChange: (d: Draft) => void;
-  }) {
-    return (
-      <div className="space-y-2">
-        <Input
-          value={value.name}
-          onChange={(e) => onChange({ ...value, name: e.target.value })}
-          placeholder="Nome"
-          className="h-9"
-        />
-        <Input
-          value={value.dosage}
-          onChange={(e) => onChange({ ...value, dosage: e.target.value })}
-          placeholder="Dose, es. 1 compressa (facoltativo)"
-          className="h-9"
-        />
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <Checkbox
-            checked={value.asNeeded}
-            onCheckedChange={(c) =>
-              onChange({ ...value, asNeeded: c === true })
-            }
-          />
-          Al bisogno (senza orari fissi)
-        </label>
-        {!value.asNeeded && (
-          <Input
-            value={value.times}
-            onChange={(e) => onChange({ ...value, times: e.target.value })}
-            placeholder="Orari, es. 08:00, 20:00"
-            className="h-9"
-          />
-        )}
-        <div className="flex gap-2">
-          <div className="flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">Inizio</Label>
-            <Input
-              type="date"
-              value={value.startDate}
-              onChange={(e) =>
-                onChange({ ...value, startDate: e.target.value })
-              }
-              className="h-9"
-            />
-          </div>
-          <div className="w-28 space-y-1">
-            <Label className="text-xs text-muted-foreground">Durata (gg)</Label>
-            <Input
-              type="number"
-              min={1}
-              value={value.durationDays}
-              onChange={(e) =>
-                onChange({ ...value, durationDays: e.target.value })
-              }
-              placeholder="∞"
-              className="h-9"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function MedRow({ med }: { med: Medication }) {
-    const times = parseTimes(med.times);
-    const period = periodLabel(med);
-    return (
-      <li className="rounded-lg border border-input p-2 pl-3">
-        {editingId === med.id ? (
-          <div className="space-y-2">
-            <DraftFields value={edit} onChange={setEdit} />
-            <div className="flex justify-end gap-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setEditingId(null)}
-              >
-                <X /> Annulla
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() => save(med.id)}
-              >
-                <Check /> Salva
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {med.name}
-                {med.dosage && (
-                  <span className="font-normal text-muted-foreground">
-                    {" "}
-                    · {med.dosage}
-                  </span>
-                )}
-              </p>
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                {med.asNeeded ? (
-                  <span className="flex items-center gap-1">
-                    <Repeat className="h-3 w-3" /> al bisogno
-                  </span>
-                ) : (
-                  times.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {times.join(" · ")}
-                    </span>
-                  )
-                )}
-                {period && <span>{period}</span>}
-              </p>
-            </div>
-            {med.active ? (
-              <>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => startEdit(med)}
-                  aria-label="Modifica"
-                >
-                  <Pencil />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  disabled={busy}
-                  onClick={() => setActive(med.id, false)}
-                  aria-label="Archivia"
-                  title="Archivia (sospendi senza perdere lo storico)"
-                >
-                  <Archive />
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                disabled={busy}
-                onClick={() => setActive(med.id, true)}
-                aria-label="Ripristina"
-                title="Ripristina"
-              >
-                <ArchiveRestore />
-              </Button>
-            )}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-destructive"
-              disabled={busy}
-              onClick={() => remove(med.id, med.name)}
-              aria-label="Elimina"
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        )}
-      </li>
-    );
-  }
-
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -360,7 +382,19 @@ export function MedicationsManager({
       <CardContent className="space-y-4">
         <ul className="space-y-2">
           {active.map((med) => (
-            <MedRow key={med.id} med={med} />
+            <MedRow
+              key={med.id}
+              med={med}
+              editingId={editingId}
+              edit={edit}
+              setEdit={setEdit}
+              busy={busy}
+              onSave={save}
+              onCancelEdit={() => setEditingId(null)}
+              onStartEdit={startEdit}
+              onSetActive={setActive}
+              onRemove={remove}
+            />
           ))}
           {active.length === 0 && (
             <li className="text-sm text-muted-foreground">
@@ -376,7 +410,19 @@ export function MedicationsManager({
             </summary>
             <ul className="space-y-2 p-2 pt-0">
               {archived.map((med) => (
-                <MedRow key={med.id} med={med} />
+                <MedRow
+                  key={med.id}
+                  med={med}
+                  editingId={editingId}
+                  edit={edit}
+                  setEdit={setEdit}
+                  busy={busy}
+                  onSave={save}
+                  onCancelEdit={() => setEditingId(null)}
+                  onStartEdit={startEdit}
+                  onSetActive={setActive}
+                  onRemove={remove}
+                />
               ))}
             </ul>
           </details>
