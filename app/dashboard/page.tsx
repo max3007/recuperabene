@@ -77,7 +77,7 @@ export default async function DashboardPage() {
           </p>
         )}
 
-        <InsightsPanel />
+        <InsightsPanel patientName={patient.name} daysSinceOp={daysSinceOp} />
       </main>
       <Nav />
     </div>
